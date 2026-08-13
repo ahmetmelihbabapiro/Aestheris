@@ -5,14 +5,6 @@ from google.genai import types
 # --- SAYFA VE TASARIM AYARLARI ---
 st.set_page_config(page_title="Aetheris - Advanced AI", page_icon="⚡", layout="centered")
 
-# Özel CSS ile tasarımı fıstık gibi yapıyoruz
-st.markdown("""
-    <style>
-    /* Dosya yükleme butonunu gizle ama işlevini koru */
-    .stUploadedFile {display: none;}
-    </style>
-""", unsafe_allow_html=True)
-
 # --- API AYARI ---
 try:
     API_KEY = st.secrets["API_KEY"]
@@ -30,13 +22,6 @@ with st.sidebar:
             {"role": "assistant", "content": "Selam usta! Yepyeni bir sayfa açtık. Nasıl yardımcı olabilirim? 🚀"}
         ]
         st.rerun()
-    
-    st.markdown("---")
-    st.subheader("📸 Görsel Yükle")
-    # Görseli şık bir şekilde yan menüye aldık, taşma kirlilik asla yok!
-    uploaded_file = st.file_uploader("Analiz edilecek görseli seç", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-    if uploaded_file:
-        st.success("Görsel hazır usta! Mesajını yaz ve gönder.")
 
 st.title("⚡ Aetheris")
 
@@ -51,10 +36,24 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- MESAJ GİRİŞ ALANI ---
-if prompt := st.chat_input("Aetheris'e bir şeyler yaz usta..."):
-    user_input_text = prompt
-    display_text = prompt
+# --- ALT KISIM: "+" BUTONU VE MESAJ GİRİŞİ ---
+# Yan yana şık yerleşim: Sol tarafa ufak bir expander/buton koyarak "+" efekti veriyoruz
+col_btn, col_input = st.columns([0.12, 0.88], gap="small")
+
+uploaded_file = None
+with col_btn:
+    # "+" Butonu mantığı için popover (açılır menü) kullanıyoruz
+    with st.popover("➕", help="Görsel Yükle"):
+        uploaded_file = st.file_uploader("Görsel seç usta", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+        if uploaded_file:
+            st.success("Görsel eklendi! ✨")
+
+with col_input:
+    prompt = st.chat_input("Aetheris'e bir şeyler yaz usta...")
+
+if prompt or uploaded_file:
+    user_input_text = prompt if prompt else "Bu görseli analiz et usta."
+    display_text = user_input_text
     if uploaded_file:
         display_text += " [📸 Görsel Eklendi]"
         
