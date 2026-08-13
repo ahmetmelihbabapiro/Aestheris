@@ -1,75 +1,59 @@
 import streamlit as st
 from google import genai
 from google.genai import types
+import json
+import os
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Aetheris - AI Companion", page_icon="⚡", layout="centered")
+st.set_page_config(page_title="Aetheris - Advanced", page_icon="⚡", layout="centered")
+st.title("⚡ Aetheris - Advanced AI")
 
-st.title("⚡ Aetheris - AI Companion")
-st.caption("Aetheris web arayüzüyle aktif, emre amade usta! 🚀")
+# --- API AYARI ---
+API_KEY = st.secrets["API_KEY"]
+client = genai.Client(api_key=API_KEY)
 
-# --- GÜVENLİ API ÇEKME ---
-try:
-    API_KEY = st.secrets["API_KEY"]
-except Exception:
-    API_KEY = ""
+# --- VERİ KAYDI (DATA SAVING) ---
+def save_chat(messages):
+    with open("chat_history.json", "w", encoding="utf-8") as f:
+        json.dump(messages, f)
 
-if not API_KEY or API_KEY.strip() == "":
-    st.warning("⚠️ Usta, Streamlit Secrets içine `API_KEY` eklenmemiş! Lütfen panelden ekle.")
+def load_chat():
+    if os.path.exists("chat_history.json"):
+        with open("chat_history.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return [{"role": "assistant", "content": "Selam usta! Aetheris aktif. Görsel analize ve veri kaydına hazırım! 🚀"}]
 
-# Sohbet geçmişini sayfada tutmak için session_state kullanıyoruz
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Selam usta! Aetheris aktif ve emre amade. Nasıl yardımcı olabilirim? 🚀"}
-    ]
+    st.session_state.messages = load_chat()
 
 # --- SOHBET ARAYÜZÜ ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Aetheris'e bir şeyler yaz usta..."):
-    # Kullanıcı mesajını ekrana ve geçmişe ekle
+# --- GÖRSEL YÜKLEME VE ANALİZ ---
+uploaded_file = st.file_uploader("Bir görsel yükle usta, analiz edeyim...", type=["jpg", "png"])
+
+if prompt := st.chat_input("Bir şeyler yaz veya görseli analiz ettir..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    if API_KEY:
-        with st.chat_message("assistant"):
-            try:
-                client = genai.Client(api_key=API_KEY)
-                
-                system_instruction = (
-                    "Sen Aetheris adında, Python tabanlı, zeki, havalı ve son derece yetenekli bir yapay zekasın. "
-                    "Kullanıcıya 'usta' olarak hitap ediyorsun. Kodlama projelerinde, fikir üretiminde ve teknik konularda "
-                    "en üst düzeyde yardımcı oluyorsun. Cevapların net, karizmatik ve çözüm odaklı. Kısa ve öz cevap ver."
-                )
+    with st.chat_message("assistant"):
+        try:
+            # Görsel varsa Gemini'a gönder
+            contents = [prompt]
+            if uploaded_file:
+                bytes_data = uploaded_file.getvalue()
+                contents.append(types.Part.from_data(data=bytes_data, mime_type="image/jpeg"))
 
-                # Geçmiş mesajları Gemini formatına dönüştürüyoruz
-                formatted_history = []
-                for m in st.session_state.messages[:-1]: # Son mesaj hariç geçmiş
-                    role = "user" if m["role"] == "user" else "model"
-                    formatted_history.append(
-                        types.Content(role=role, parts=[types.Part.from_text(text=m["content"])])
-                    )
-
-                chat_session = client.chats.create(
-                    model="gemini-3.5-flash-lite",
-                    history=formatted_history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=0.7,
-                    )
-                )
-
-                response_stream = chat_session.send_message_stream(prompt)
-                
-                def stream_generator():
-                    for chunk in response_stream:
-                        if chunk.text:
-                            yield chunk.text
-                            
-                full_response = st.write_stream(stream_generator())
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            except Exception as e:
-                st.error(f"Sistem Hatası: {e}")
+            response = client.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=contents
+            )
+            
+            st.markdown(response.text)
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+            save_chat(st.session_state.messages) # Kaydet usta!
+        except Exception as e:
+            st.error(f"Sistem Hatası: {e}")
