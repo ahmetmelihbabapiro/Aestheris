@@ -14,38 +14,14 @@ try:
 except Exception:
     API_KEY = ""
 
+if not API_KEY or API_KEY.strip() == "":
+    st.warning("⚠️ Usta, Streamlit Secrets içine `API_KEY` eklenmemiş! Lütfen panelden ekle.")
+
 # Sohbet geçmişini sayfada tutmak için session_state kullanıyoruz
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "Selam usta! Aetheris aktif ve emre amade. Nasıl yardımcı olabilirim? 🚀"}
     ]
-
-# Yapay zeka modelini önbelleğe alıp başlatıyoruz
-@st.cache_resource
-def get_chat_session(api_key):
-    if not api_key or api_key.strip() == "":
-        return None
-        
-    client = genai.Client(api_key=api_key)
-    
-    system_instruction = (
-        "Sen Aetheris adında, Python tabanlı, zeki, havalı ve son derece yetenekli bir yapay zekasın. "
-        "Kullanıcıya 'usta' olarak hitap ediyorsun. Kodlama projelerinde, fikir üretiminde ve teknik konularda "
-        "en üst düzeyde yardımcı oluyorsun. Cevapların net, karizmatik ve çözüm odaklı. Kısa ve öz cevap ver."
-    )
-    
-    return client.chats.create(
-        model="gemini-3.5-flash-lite",
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=0.7,
-        )
-    )
-
-chat_session = get_chat_session(API_KEY)
-
-if not chat_session:
-    st.warning("⚠️ Usta, Streamlit Secrets içine `API_KEY` eklenmemiş! Lütfen panelden ekle.")
 
 # --- SOHBET ARAYÜZÜ ---
 for msg in st.session_state.messages:
@@ -53,13 +29,39 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 if prompt := st.chat_input("Aetheris'e bir şeyler yaz usta..."):
+    # Kullanıcı mesajını ekrana ve geçmişe ekle
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    if chat_session:
+    if API_KEY:
         with st.chat_message("assistant"):
             try:
+                client = genai.Client(api_key=API_KEY)
+                
+                system_instruction = (
+                    "Sen Aetheris adında, Python tabanlı, zeki, havalı ve son derece yetenekli bir yapay zekasın. "
+                    "Kullanıcıya 'usta' olarak hitap ediyorsun. Kodlama projelerinde, fikir üretiminde ve teknik konularda "
+                    "en üst düzeyde yardımcı oluyorsun. Cevapların net, karizmatik ve çözüm odaklı. Kısa ve öz cevap ver."
+                )
+
+                # Geçmiş mesajları Gemini formatına dönüştürüyoruz
+                formatted_history = []
+                for m in st.session_state.messages[:-1]: # Son mesaj hariç geçmiş
+                    role = "user" if m["role"] == "user" else "model"
+                    formatted_history.append(
+                        types.Content(role=role, parts=[types.Part.from_text(text=m["content"])])
+                    )
+
+                chat_session = client.chats.create(
+                    model="gemini-3.5-flash-lite",
+                    history=formatted_history,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.7,
+                    )
+                )
+
                 response_stream = chat_session.send_message_stream(prompt)
                 
                 def stream_generator():
