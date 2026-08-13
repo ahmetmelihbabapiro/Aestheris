@@ -2,8 +2,16 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
-# --- SAYFA AYARLARI ---
+# --- SAYFA VE TASARIM AYARLARI ---
 st.set_page_config(page_title="Aetheris - Advanced AI", page_icon="⚡", layout="centered")
+
+# Özel CSS ile tasarımı fıstık gibi yapıyoruz
+st.markdown("""
+    <style>
+    /* Dosya yükleme butonunu gizle ama işlevini koru */
+    .stUploadedFile {display: none;}
+    </style>
+""", unsafe_allow_html=True)
 
 # --- API AYARI ---
 try:
@@ -22,8 +30,13 @@ with st.sidebar:
             {"role": "assistant", "content": "Selam usta! Yepyeni bir sayfa açtık. Nasıl yardımcı olabilirim? 🚀"}
         ]
         st.rerun()
+    
     st.markdown("---")
-    st.caption("Aetheris Web v2.0 - Multimodal & Session Ready")
+    st.subheader("📸 Görsel Yükle")
+    # Görseli şık bir şekilde yan menüye aldık, taşma kirlilik asla yok!
+    uploaded_file = st.file_uploader("Analiz edilecek görseli seç", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+    if uploaded_file:
+        st.success("Görsel hazır usta! Mesajını yaz ve gönder.")
 
 st.title("⚡ Aetheris")
 
@@ -38,23 +51,10 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- MESAJ VE GÖRSEL GİRİŞ ALANI ---
-# Yan yana yerleşim için kolonlar: Sol taraf +, sağ taraf chat input
-col_plus, col_input = st.columns([0.08, 0.92])
-
-uploaded_file = None
-with col_plus:
-    # Mesaj girişinin solundaki + butonu ile dosya açma (Pop-up/Uploader alternatifi)
-    uploaded_file = st.file_uploader("+", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-
-with col_input:
-    prompt = st.chat_input("Aetheris'e bir şeyler yaz usta...")
-
-if prompt or uploaded_file:
-    user_input_text = prompt if prompt else "Bu görseli analiz et usta."
-    
-    # Kullanıcı mesajını ekle
-    display_text = user_input_text
+# --- MESAJ GİRİŞ ALANI ---
+if prompt := st.chat_input("Aetheris'e bir şeyler yaz usta..."):
+    user_input_text = prompt
+    display_text = prompt
     if uploaded_file:
         display_text += " [📸 Görsel Eklendi]"
         
